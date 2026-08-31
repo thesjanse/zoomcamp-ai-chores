@@ -10,7 +10,7 @@
 
 ## 2. Technology Stack
 *   **Backend:** Django (Python) — utilizing built-in Admin panel and Auth system.
-*   **Frontend Logic:** Django Templates + HTMX (for dynamic, SPA-like calendar updates without page reloads).
+*   **Frontend Logic:** Django Templates + HTMX (for dynamic, SPA-like AJAX updates without page reloads) + Alpine.js (for lightweight client-side interactivity: dropdowns, modals, tooltips).
 *   **Frontend Styling:** Bootstrap (for fast, responsive, and clean layout/grid system).
 *   **Database:** SQLite (zero configuration, database stored in a single file for rapid development).
 
