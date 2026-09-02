@@ -1,0 +1,15 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}{{ chore.title }}{% endblock %}
+
+{% block content %}
+<h1>{{ chore.title }}</h1>
+<p>Status: {{ chore.get_status_display }}</p>
+{% if chore.description %}<p>{{ chore.description }}</p>{% endif %}
+{% if chore.due_date %}<p>Due: {{ chore.due_date }}</p>{% endif %}
+<p>
+    <a href="{% url 'chore_update' chore.pk %}">Edit</a>
+    <a href="{% url 'chore_delete' chore.pk %}">Delete</a>
+    <a href="{% url 'chore_list' %}">Back to list</a>
+</p>
+{% endblock %}

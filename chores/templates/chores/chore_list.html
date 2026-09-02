@@ -1,0 +1,18 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Chores{% endblock %}
+
+{% block content %}
+<h1>Chores</h1>
+<a href="{% url 'chore_create' %}">New Chore</a>
+<ul>
+    {% for chore in chores %}
+    <li>
+        <a href="{% url 'chore_detail' chore.pk %}">{{ chore.title }}</a>
+        ({{ chore.get_status_display }})
+    </li>
+    {% empty %}
+    <li>No chores yet.</li>
+    {% endfor %}
+</ul>
+{% endblock %}
