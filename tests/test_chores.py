@@ -1,9 +1,18 @@
+from datetime import date, timedelta
+from unittest import mock
+
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from chores.models import Chore
+from chores.utils import chore_color_class
 from households.models import Household, HouseholdMember
+
+
+def count_class(response, css_class):
+    return response.content.decode().count(f'class="{css_class}"')
 
 
 class ChoreModelTest(TestCase):
@@ -353,3 +362,162 @@ class ChoreMarketTest(TestCase):
         )
         self.assertContains(response, "hx-target=\"closest li\"")
         self.assertContains(response, "hx-swap=\"outerHTML\"")
+
+
+class ChoreColorClassTest(TestCase):
+    def test_no_due_date_is_none(self):
+        chore = Chore(due_date=None, status="open")
+        self.assertEqual(chore_color_class(chore, today=timezone.localdate()), "calendar-none")
+
+    def test_done_is_always_on_time(self):
+        today = timezone.localdate()
+        overdue_done = Chore(due_date=today - timedelta(days=10), status="done")
+        soon_done = Chore(due_date=today + timedelta(days=1), status="done")
+        self.assertEqual(chore_color_class(overdue_done, today=today), "calendar-on-time")
+        self.assertEqual(chore_color_class(soon_done, today=today), "calendar-on-time")
+
+    def test_overdue_open_is_red(self):
+        today = timezone.localdate()
+        chore = Chore(due_date=today - timedelta(days=1), status="open")
+        self.assertEqual(chore_color_class(chore, today=today), "calendar-overdue")
+
+    def test_due_soon_is_yellow(self):
+        today = timezone.localdate()
+        due_today = Chore(due_date=today, status="in_progress")
+        due_in_three = Chore(due_date=today + timedelta(days=3), status="in_progress")
+        in_future = Chore(due_date=today + timedelta(days=4), status="open")
+        self.assertEqual(chore_color_class(due_today, today=today), "calendar-due-soon")
+        self.assertEqual(chore_color_class(due_in_three, today=today), "calendar-due-soon")
+        self.assertEqual(chore_color_class(in_future, today=today), "calendar-on-time")
+
+
+class ChoreCalendarTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            "tester", "tester@example.com", "password123!"
+        )
+        self.household = Household.objects.create(name="The Smiths")
+        HouseholdMember.objects.create(user=self.user, household=self.household)
+        self.client.force_login(self.user)
+
+        self.other_user = User.objects.create_user("other")
+        self.other_household = Household.objects.create(name="The Others")
+        HouseholdMember.objects.create(
+            user=self.other_user, household=self.other_household
+        )
+
+    def test_anonymous_redirected_to_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("chore_calendar"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login", response.url)
+
+    def test_user_without_household_redirected_to_onboarding(self):
+        no_house_user = User.objects.create_user("homeless")
+        self.client.force_login(no_house_user)
+        response = self.client.get(reverse("chore_calendar"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("onboarding"))
+
+    def test_renders_month_label_and_grid(self):
+        today = timezone.localdate()
+        response = self.client.get(reverse("chore_calendar"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, today.strftime("%B %Y"))
+        for header in ("<th>Mon</th>", "<th>Sun</th>"):
+            self.assertContains(response, header)
+
+    def test_chores_placed_in_correct_due_date_cell(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            day15 = Chore.objects.create(
+                title="Due on 15th",
+                household=self.household,
+                due_date=date(2026, 9, 15),
+            )
+            day20 = Chore.objects.create(
+                title="Due on 20th",
+                household=self.household,
+                due_date=date(2026, 9, 20),
+            )
+            response = self.client.get(reverse("chore_calendar"))
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        day15_cell = html.find("15</div>")
+        day20_cell = html.find("20</div>")
+        self.assertNotEqual(day15_cell, -1)
+        self.assertNotEqual(day20_cell, -1)
+        title15 = html.find(day15.title, day15_cell)
+        title20 = html.find(day20.title, day20_cell)
+        self.assertNotEqual(title15, -1)
+        self.assertNotEqual(title20, -1)
+        self.assertLess(title15, day20_cell)
+
+    def test_color_coding_renders_classes(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            overdue = Chore.objects.create(
+                title="Overdue", household=self.household,
+                status="open", due_date=date(2026, 9, 1),
+            )
+            due_soon = Chore.objects.create(
+                title="Due soon", household=self.household,
+                status="in_progress", due_date=date(2026, 9, 16),
+            )
+            on_time = Chore.objects.create(
+                title="On time", household=self.household,
+                status="open", due_date=date(2026, 9, 25),
+            )
+            response = self.client.get(reverse("chore_calendar"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, overdue.title)
+        self.assertContains(response, due_soon.title)
+        self.assertContains(response, on_time.title)
+        self.assertEqual(
+            count_class(response, "calendar-overdue"), 1
+        )
+        self.assertEqual(count_class(response, "calendar-due-soon"), 1)
+        self.assertEqual(count_class(response, "calendar-on-time"), 1)
+
+    def test_done_overdue_renders_green_not_red(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            done = Chore.objects.create(
+                title="Done overdue", household=self.household,
+                status="done", due_date=date(2026, 9, 10),
+            )
+            response = self.client.get(reverse("chore_calendar"))
+        self.assertContains(response, done.title)
+        self.assertEqual(count_class(response, "calendar-on-time"), 1)
+        self.assertEqual(count_class(response, "calendar-overdue"), 0)
+
+    def test_no_due_date_chore_omitted(self):
+        Chore.objects.create(title="No date", household=self.household)
+        response = self.client.get(reverse("chore_calendar"))
+        self.assertNotContains(response, "No date")
+
+    def test_foreign_household_chores_not_shown(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            Chore.objects.create(
+                title="Foreign", household=self.other_household,
+                due_date=date(2026, 9, 15),
+            )
+            response = self.client.get(reverse("chore_calendar"))
+        self.assertNotContains(response, "Foreign")
+
+    def test_different_month_chore_not_shown(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            Chore.objects.create(
+                title="Other month", household=self.household,
+                due_date=date(2026, 10, 1),
+            )
+            response = self.client.get(reverse("chore_calendar"))
+        self.assertNotContains(response, "Other month")

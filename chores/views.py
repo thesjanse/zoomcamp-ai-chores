@@ -1,6 +1,10 @@
+import calendar
+from datetime import date
+
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from chores.forms import ChoreForm
 from chores.models import Chore
@@ -113,3 +117,30 @@ def chore_claim(request, pk):
         assigned_to__isnull=True,
     ).update(assigned_to=request.user, status="in_progress")
     return HttpResponse(status=200)
+
+
+@login_required
+@_household_or_redirect_decorator
+def chore_calendar(request):
+    today = timezone.localdate()
+    year, month = today.year, today.month
+    chores = Chore.objects.filter(
+        household=request.household,
+        due_date__isnull=False,
+        due_date__year=year,
+        due_date__month=month,
+    )
+    by_day = {}
+    for chore in chores:
+        by_day.setdefault(chore.due_date.day, []).append(chore)
+    weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(year, month)
+    return render(
+        request,
+        "chores/calendar.html",
+        {
+            "weeks": weeks,
+            "by_day": by_day,
+            "today": today,
+            "month_label": today.strftime("%B %Y"),
+        },
+    )

@@ -1,0 +1,39 @@
+{% extends "accounts/base.html" %}
+{% load chore_tags %}
+
+{% block title %}Calendar{% endblock %}
+
+{% block content %}
+<h1>{{ month_label }}</h1>
+<table>
+    <thead>
+        <tr>
+            <th>Mon</th>
+            <th>Tue</th>
+            <th>Wed</th>
+            <th>Thu</th>
+            <th>Fri</th>
+            <th>Sat</th>
+            <th>Sun</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for week in weeks %}
+        <tr>
+            {% for day in week %}
+            <td>
+                <div>{{ day.day }}</div>
+                {% if day.month == today.month %}
+                {% for chore in by_day|get_item:day.day %}
+                <div class="{{ chore|chore_color }}">
+                    <a href="{% url 'chore_detail' chore.pk %}">{{ chore.title }}</a>
+                </div>
+                {% endfor %}
+                {% endif %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
