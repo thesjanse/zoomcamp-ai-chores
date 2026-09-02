@@ -204,3 +204,152 @@ class ChoreViewsTest(TestCase):
         response = self.client.post(reverse("chore_delete", args=[foreign.pk]))
         self.assertEqual(response.status_code, 404)
         self.assertTrue(Chore.objects.filter(pk=foreign.pk).exists())
+
+
+class ChoreMarketTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            "tester", "tester@example.com", "password123!"
+        )
+        self.household = Household.objects.create(name="The Smiths")
+        HouseholdMember.objects.create(user=self.user, household=self.household)
+        self.client.force_login(self.user)
+
+        self.other_user = User.objects.create_user("other")
+        self.other_household = Household.objects.create(name="The Others")
+        HouseholdMember.objects.create(
+            user=self.other_user, household=self.other_household
+        )
+
+    def test_market_lists_only_open_unassigned_chores(self):
+        open_chore = Chore.objects.create(
+            title="Open one", household=self.household
+        )
+        assigned = Chore.objects.create(
+            title="Assigned", household=self.household,
+            assigned_to=self.user, status="in_progress",
+        )
+        done = Chore.objects.create(
+            title="Done", household=self.household, status="done"
+        )
+        foreign = Chore.objects.create(
+            title="Foreign", household=self.other_household
+        )
+        response = self.client.get(reverse("chore_market"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, open_chore.title)
+        self.assertNotContains(response, assigned.title)
+        self.assertNotContains(response, done.title)
+        self.assertNotContains(response, foreign.title)
+
+    def test_market_empty_state(self):
+        response = self.client.get(reverse("chore_market"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No chores available to claim.")
+
+    def test_claim_assigns_and_sets_in_progress_returns_200(self):
+        chore = Chore.objects.create(
+            title="Claim me", household=self.household
+        )
+        response = self.client.post(reverse("chore_claim", args=[chore.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"")
+        chore.refresh_from_db()
+        self.assertEqual(chore.assigned_to, self.user)
+        self.assertEqual(chore.status, "in_progress")
+
+    def test_claim_removes_chore_from_market(self):
+        chore = Chore.objects.create(
+            title="Gone", household=self.household
+        )
+        self.client.post(reverse("chore_claim", args=[chore.pk]))
+        market = self.client.get(reverse("chore_market"))
+        self.assertNotContains(market, chore.title)
+
+    def test_double_claim_preserves_original_assignee(self):
+        chore = Chore.objects.create(
+            title="One shot", household=self.household
+        )
+        first = self.client.post(reverse("chore_claim", args=[chore.pk]))
+        self.assertEqual(first.status_code, 200)
+        second = self.client.post(reverse("chore_claim", args=[chore.pk]))
+        self.assertEqual(second.status_code, 200)
+        chore.refresh_from_db()
+        self.assertEqual(chore.assigned_to, self.user)
+        self.assertEqual(chore.status, "in_progress")
+
+        other_member = User.objects.create_user("other_member")
+        HouseholdMember.objects.create(
+            user=other_member, household=self.household
+        )
+        self.client.force_login(other_member)
+        third = self.client.post(reverse("chore_claim", args=[chore.pk]))
+        self.assertEqual(third.status_code, 200)
+        chore.refresh_from_db()
+        self.assertEqual(chore.assigned_to, self.user)
+        self.assertEqual(chore.status, "in_progress")
+
+    def test_foreign_user_claims_404_and_not_modified(self):
+        chore = Chore.objects.create(
+            title="Mine", household=self.household
+        )
+        self.client.force_login(self.other_user)
+        response = self.client.post(reverse("chore_claim", args=[chore.pk]))
+        self.assertEqual(response.status_code, 404)
+        chore.refresh_from_db()
+        self.assertIsNone(chore.assigned_to)
+        self.assertEqual(chore.status, "open")
+
+    def test_foreign_user_market_404(self):
+        self.client.force_login(self.other_user)
+        Chore.objects.create(title="Mine", household=self.household)
+        response = self.client.get(reverse("chore_market"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Mine")
+
+    def test_anonymous_claim_redirected_to_login(self):
+        self.client.logout()
+        chore = Chore.objects.create(
+            title="Anon", household=self.household
+        )
+        response = self.client.post(reverse("chore_claim", args=[chore.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login", response.url)
+
+    def test_anonymous_market_redirected_to_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("chore_market"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login", response.url)
+
+    def test_no_household_user_redirected_to_onboarding_market(self):
+        no_house_user = User.objects.create_user("homeless")
+        self.client.force_login(no_house_user)
+        response = self.client.get(reverse("chore_market"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("onboarding"))
+
+    def test_no_household_user_redirected_to_onboarding_claim(self):
+        no_house_user = User.objects.create_user("homeless2")
+        chore = Chore.objects.create(
+            title="Any", household=self.household
+        )
+        self.client.force_login(no_house_user)
+        response = self.client.post(reverse("chore_claim", args=[chore.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("onboarding"))
+
+    def test_claim_form_uses_htmx(self):
+        chore = Chore.objects.create(
+            title="HTMX chore", household=self.household
+        )
+        response = self.client.get(reverse("chore_market"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "htmx.org@1.9.12")
+        self.assertContains(
+            response,
+            f'hx-post="{reverse("chore_claim", args=[chore.pk])}"',
+        )
+        self.assertContains(response, "hx-target=\"closest li\"")
+        self.assertContains(response, "hx-swap=\"outerHTML\"")

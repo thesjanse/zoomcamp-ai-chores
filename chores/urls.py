@@ -8,4 +8,6 @@ urlpatterns = [
     path("chores/<int:pk>/", views.chore_detail, name="chore_detail"),
     path("chores/<int:pk>/edit/", views.chore_update, name="chore_update"),
     path("chores/<int:pk>/delete/", views.chore_delete, name="chore_delete"),
+    path("chores/market/", views.chore_market, name="chore_market"),
+    path("chores/<int:pk>/claim/", views.chore_claim, name="chore_claim"),
 ]

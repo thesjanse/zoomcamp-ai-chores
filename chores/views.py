@@ -1,5 +1,5 @@
 from django.contrib.auth.decorators import login_required
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from chores.forms import ChoreForm
@@ -85,3 +85,31 @@ def chore_delete(request, pk):
     return render(
         request, "chores/chore_confirm_delete.html", {"chore": chore}
     )
+
+
+@login_required
+@_household_or_redirect_decorator
+def chore_market(request):
+    chores = Chore.objects.filter(
+        household=request.household,
+        status="open",
+        assigned_to__isnull=True,
+    )
+    return render(request, "chores/chore_market.html", {"chores": chores})
+
+
+@login_required
+@_household_or_redirect_decorator
+def chore_claim(request, pk):
+    get_object_or_404(
+        Chore,
+        pk=pk,
+        household=request.household,
+    )
+    Chore.objects.filter(
+        pk=pk,
+        household=request.household,
+        status="open",
+        assigned_to__isnull=True,
+    ).update(assigned_to=request.user, status="in_progress")
+    return HttpResponse(status=200)
