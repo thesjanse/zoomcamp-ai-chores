@@ -3,10 +3,14 @@
 {% block title %}{{ chore.title }}{% endblock %}
 
 {% block content %}
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 <h1>{{ chore.title }}</h1>
 <p>Status: {{ chore.get_status_display }}</p>
 {% if chore.description %}<p>{{ chore.description }}</p>{% endif %}
 {% if chore.due_date %}<p>Due: {{ chore.due_date }}</p>{% endif %}
+{% if user == chore.assigned_to and chore.status == "in_progress" %}
+<form method="post" hx-post="{% url 'chore_done' chore.pk %}" hx-target="closest form" hx-swap="outerHTML">{% csrf_token %}<button>Mark Done</button></form>
+{% endif %}
 <p>
     <a href="{% url 'chore_update' chore.pk %}">Edit</a>
     <a href="{% url 'chore_delete' chore.pk %}">Delete</a>

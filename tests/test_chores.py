@@ -364,6 +364,144 @@ class ChoreMarketTest(TestCase):
         self.assertContains(response, "hx-swap=\"outerHTML\"")
 
 
+class ChoreDoneTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            "tester", "tester@example.com", "password123!"
+        )
+        self.household = Household.objects.create(name="The Smiths")
+        HouseholdMember.objects.create(user=self.user, household=self.household)
+        self.client.force_login(self.user)
+
+        self.other_user = User.objects.create_user("other")
+        self.other_household = Household.objects.create(name="The Others")
+        HouseholdMember.objects.create(
+            user=self.other_user, household=self.other_household
+        )
+
+    def test_mark_done_sets_status_and_completed_at(self):
+        chore = Chore.objects.create(
+            title="Finish project",
+            household=self.household,
+            assigned_to=self.user,
+            status="in_progress",
+        )
+        response = self.client.post(reverse("chore_done", args=[chore.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"")
+        chore.refresh_from_db()
+        self.assertEqual(chore.status, "done")
+        self.assertIsNotNone(chore.completed_at)
+        self.assertLess(chore.completed_at - timezone.now(), timedelta(seconds=10))
+
+    def test_mark_done_removes_chore_from_list(self):
+        chore = Chore.objects.create(
+            title="Disappear me",
+            household=self.household,
+            assigned_to=self.user,
+            status="in_progress",
+        )
+        self.client.post(reverse("chore_done", args=[chore.pk]))
+        response = self.client.get(reverse("chore_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, chore.title)
+
+    def test_unclaimed_chore_cannot_be_marked_done(self):
+        chore = Chore.objects.create(
+            title="Unclaimed", household=self.household
+        )
+        response = self.client.post(reverse("chore_done", args=[chore.pk]))
+        self.assertEqual(response.status_code, 200)
+        chore.refresh_from_db()
+        self.assertEqual(chore.status, "open")
+        self.assertIsNone(chore.assigned_to)
+
+    def test_already_done_chore_not_marked_done_again(self):
+        original_completed_at = timezone.now() - timedelta(days=1)
+        chore = Chore.objects.create(
+            title="Already done",
+            household=self.household,
+            assigned_to=self.user,
+            status="done",
+            completed_at=original_completed_at,
+        )
+        response = self.client.post(reverse("chore_done", args=[chore.pk]))
+        self.assertEqual(response.status_code, 200)
+        chore.refresh_from_db()
+        self.assertEqual(chore.status, "done")
+        self.assertEqual(chore.completed_at, original_completed_at)
+
+    def test_foreign_chore_done_404(self):
+        chore = Chore.objects.create(
+            title="Foreign", household=self.other_household
+        )
+        response = self.client.post(reverse("chore_done", args=[chore.pk]))
+        self.assertEqual(response.status_code, 404)
+        chore.refresh_from_db()
+        self.assertEqual(chore.status, "open")
+
+    def test_anonymous_done_redirected_to_login(self):
+        self.client.logout()
+        chore = Chore.objects.create(
+            title="Anon", household=self.household
+        )
+        response = self.client.post(reverse("chore_done", args=[chore.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login", response.url)
+
+    def test_no_household_user_done_redirected_to_onboarding(self):
+        no_house_user = User.objects.create_user("homeless")
+        self.client.force_login(no_house_user)
+        chore = Chore.objects.create(
+            title="Any", household=self.household
+        )
+        response = self.client.post(reverse("chore_done", args=[chore.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("onboarding"))
+
+    def test_mark_done_button_shown_only_to_assignee_of_in_progress(self):
+        assigned = Chore.objects.create(
+            title="My task",
+            household=self.household,
+            assigned_to=self.user,
+            status="in_progress",
+        )
+        response = self.client.get(reverse("chore_detail", args=[assigned.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "htmx.org@1.9.12")
+        self.assertContains(
+            response,
+            f'hx-post="{reverse("chore_done", args=[assigned.pk])}"',
+        )
+        self.assertContains(response, "hx-target=\"closest form\"")
+        self.assertContains(response, "hx-swap=\"outerHTML\"")
+
+    def test_mark_done_button_hidden_for_open_and_done_and_other_assignee(self):
+        open_chore = Chore.objects.create(
+            title="Open", household=self.household
+        )
+        response = self.client.get(reverse("chore_detail", args=[open_chore.pk]))
+        self.assertNotContains(response, "Mark Done")
+
+        done_chore = Chore.objects.create(
+            title="Done", household=self.household, status="done"
+        )
+        response = self.client.get(reverse("chore_detail", args=[done_chore.pk]))
+        self.assertNotContains(response, "Mark Done")
+
+        other = User.objects.create_user("assignee")
+        HouseholdMember.objects.create(user=other, household=self.household)
+        other_chore = Chore.objects.create(
+            title="Theirs",
+            household=self.household,
+            assigned_to=other,
+            status="in_progress",
+        )
+        response = self.client.get(reverse("chore_detail", args=[other_chore.pk]))
+        self.assertNotContains(response, "Mark Done")
+
+
 class ChoreColorClassTest(TestCase):
     def test_no_due_date_is_none(self):
         chore = Chore(due_date=None, status="open")

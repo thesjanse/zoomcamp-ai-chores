@@ -11,4 +11,5 @@ urlpatterns = [
     path("chores/market/", views.chore_market, name="chore_market"),
     path("chores/calendar/", views.chore_calendar, name="chore_calendar"),
     path("chores/<int:pk>/claim/", views.chore_claim, name="chore_claim"),
+    path("chores/<int:pk>/done/", views.chore_done, name="chore_done"),
 ]

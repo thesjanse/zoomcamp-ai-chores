@@ -33,7 +33,9 @@ def _household_or_redirect_decorator(view_func):
 @login_required
 @_household_or_redirect_decorator
 def chore_list(request):
-    chores = Chore.objects.filter(household=request.household)
+    chores = Chore.objects.filter(household=request.household).exclude(
+        status="done"
+    )
     return render(request, "chores/chore_list.html", {"chores": chores})
 
 
@@ -116,6 +118,23 @@ def chore_claim(request, pk):
         status="open",
         assigned_to__isnull=True,
     ).update(assigned_to=request.user, status="in_progress")
+    return HttpResponse(status=200)
+
+
+@login_required
+@_household_or_redirect_decorator
+def chore_done(request, pk):
+    get_object_or_404(
+        Chore,
+        pk=pk,
+        household=request.household,
+    )
+    Chore.objects.filter(
+        pk=pk,
+        household=request.household,
+        status="in_progress",
+        assigned_to=request.user,
+    ).update(status="done", completed_at=timezone.now())
     return HttpResponse(status=200)
 
 
