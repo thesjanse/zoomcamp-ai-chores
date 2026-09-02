@@ -1,0 +1,21 @@
+[project]
+name = "zoomcamp-ai-chores"
+version = "0.1.0"
+description = "Shared Household Chores Manager"
+requires-python = ">=3.10"
+dependencies = [
+    "django",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-django",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "app.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
