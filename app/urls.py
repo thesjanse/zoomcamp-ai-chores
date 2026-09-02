@@ -25,4 +25,5 @@ urlpatterns = [
     path('', include('accounts.urls')),
     path('', include('households.urls')),
     path('', include('chores.urls')),
+    path('', include('notifications.urls')),
 ]

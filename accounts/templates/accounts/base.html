@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>{% block title %}{% endblock %}</title>
+    <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body>
     {% if messages %}
@@ -11,6 +12,44 @@
         {% endfor %}
     </ul>
     {% endif %}
+    {% if user.is_authenticated %}
+    <div id="notifications-header" x-data="{ open: false }">
+        <button type="button" @click="open = !open">
+            Notifications ({{ unread_count }})
+        </button>
+        <div x-show="open" x-cloak>
+            {% if unread_notifications %}
+                {% for notification in unread_notifications %}
+                <div>
+                    {{ notification.title }}
+                    <span>{{ notification.created_at|date:"M j, Y" }}</span>
+                    <form method="post"
+                          action="{% url 'notification_read' notification.pk %}"
+                          hx-post="{% url 'notification_read' notification.pk %}"
+                          hx-target="#notifications-header"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <button type="submit">Mark read</button>
+                    </form>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div>No new notifications</div>
+            {% endif %}
+            {% if user.is_authenticated %}
+            <form method="post"
+                  action="{% url 'notification_read_all' %}"
+                  hx-post="{% url 'notification_read_all' %}"
+                  hx-target="#notifications-header"
+                  hx-swap="outerHTML">
+                {% csrf_token %}
+                <button type="submit">Mark all read</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </body>
 </html>
