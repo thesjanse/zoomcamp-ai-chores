@@ -1,0 +1,27 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Onboarding{% endblock %}
+
+{% block content %}
+<h1>Welcome! Let's set up your household.</h1>
+
+<section>
+    <h2>Create a New Household</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ create_form.as_p }}
+        <input type="hidden" name="create" value="1">
+        <button type="submit">Create Household</button>
+    </form>
+</section>
+
+<section>
+    <h2>Join via Invite Code</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ join_form.as_p }}
+        <input type="hidden" name="join" value="1">
+        <button type="submit">Join Household</button>
+    </form>
+</section>
+{% endblock %}
