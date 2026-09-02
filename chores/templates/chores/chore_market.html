@@ -1,4 +1,5 @@
 {% extends "accounts/base.html" %}
+{% load chore_tags %}
 
 {% block title %}Chore Market{% endblock %}
 
@@ -7,7 +8,7 @@
 <h1>Chore Market</h1>
 <ul>
     {% for chore in chores %}
-    <li>
+    <li class="{{ chore|chore_color }}">
         <a href="{% url 'chore_detail' chore.pk %}">{{ chore.title }}</a>
         <form method="post" hx-post="{% url 'chore_claim' chore.pk %}" hx-target="closest li" hx-swap="outerHTML">{% csrf_token %}<button>Claim</button></form>
     </li>

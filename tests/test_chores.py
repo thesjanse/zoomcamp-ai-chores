@@ -364,6 +364,115 @@ class ChoreMarketTest(TestCase):
         self.assertContains(response, "hx-swap=\"outerHTML\"")
 
 
+class ChoreListLateIndicatorsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            "tester", "tester@example.com", "password123!"
+        )
+        self.household = Household.objects.create(name="The Smiths")
+        HouseholdMember.objects.create(user=self.user, household=self.household)
+        self.client.force_login(self.user)
+
+        self.other_user = User.objects.create_user("other")
+        self.other_household = Household.objects.create(name="The Others")
+        HouseholdMember.objects.create(
+            user=self.other_user, household=self.other_household
+        )
+
+    def test_overdue_open_chore_row_renders_overdue_class(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            Chore.objects.create(
+                title="Late", household=self.household,
+                status="open", due_date=date(2026, 9, 10),
+            )
+            response = self.client.get(reverse("chore_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(count_class(response, "calendar-overdue"), 1)
+
+    def test_overdue_in_progress_chore_row_renders_overdue_class(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            Chore.objects.create(
+                title="Late progress", household=self.household,
+                status="in_progress", assigned_to=self.user,
+                due_date=date(2026, 9, 10),
+            )
+            response = self.client.get(reverse("chore_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(count_class(response, "calendar-overdue"), 1)
+
+    def test_due_today_chore_row_not_overdue(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            Chore.objects.create(
+                title="Due today", household=self.household,
+                status="in_progress", assigned_to=self.user,
+                due_date=date(2026, 9, 15),
+            )
+            response = self.client.get(reverse("chore_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(count_class(response, "calendar-overdue"), 0)
+
+    def test_done_overdue_chore_not_marked_overdue(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            Chore.objects.create(
+                title="Done late", household=self.household,
+                status="done", due_date=date(2026, 9, 10),
+            )
+            response = self.client.get(reverse("chore_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(count_class(response, "calendar-overdue"), 0)
+
+    def test_foreign_household_overdue_chore_does_not_leak_overdue_class(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            Chore.objects.create(
+                title="Foreign", household=self.other_household,
+                status="open", due_date=date(2026, 9, 10),
+            )
+            response = self.client.get(reverse("chore_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Foreign")
+        self.assertEqual(count_class(response, "calendar-overdue"), 0)
+
+
+class ChoreMarketLateIndicatorsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            "tester", "tester@example.com", "password123!"
+        )
+        self.household = Household.objects.create(name="The Smiths")
+        HouseholdMember.objects.create(user=self.user, household=self.household)
+        self.client.force_login(self.user)
+
+        self.other_user = User.objects.create_user("other")
+        self.other_household = Household.objects.create(name="The Others")
+        HouseholdMember.objects.create(
+            user=self.other_user, household=self.other_household
+        )
+
+    def test_overdue_open_unassigned_market_row_overdue(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            Chore.objects.create(
+                title="Late market", household=self.household,
+                status="open", due_date=date(2026, 9, 10),
+            )
+            response = self.client.get(reverse("chore_market"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(count_class(response, "calendar-overdue"), 1)
+
+
 class ChoreDoneTest(TestCase):
     def setUp(self):
         self.client = Client()

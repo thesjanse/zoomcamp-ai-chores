@@ -1,4 +1,5 @@
 {% extends "accounts/base.html" %}
+{% load chore_tags %}
 
 {% block title %}Chores{% endblock %}
 
@@ -7,7 +8,7 @@
 <a href="{% url 'chore_create' %}">New Chore</a>
 <ul>
     {% for chore in chores %}
-    <li>
+    <li class="{{ chore|chore_color }}">
         <a href="{% url 'chore_detail' chore.pk %}">{{ chore.title }}</a>
         ({{ chore.get_status_display }})
     </li>
