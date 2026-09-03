@@ -1,0 +1,4 @@
+You have {{ count }} overdue chore(s):
+
+{% for chore in chores %}- {{ chore.title }} (due {{ chore.due_date }})
+{% endfor %}

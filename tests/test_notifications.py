@@ -2,8 +2,9 @@ from datetime import date
 from unittest import mock
 
 from django.contrib.auth.models import User
+from django.core import mail
 from django.core.management import call_command
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from chores.models import Chore
@@ -201,4 +202,162 @@ class NotificationReadTest(TestCase):
                 recipient=self.user, is_read=False
             ).count(),
             0,
+        )
+
+
+class NotifyOverdueEmailTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            "tester", "tester@example.com", "password123!"
+        )
+        self.household = Household.objects.create(name="The Smiths")
+        HouseholdMember.objects.create(user=self.user, household=self.household)
+        self.today = date(2026, 9, 15)
+        self.overdue = date(2026, 9, 10)
+        mail.outbox = []
+
+    @override_settings(DEFAULT_FROM_EMAIL="noreply@example.com")
+    def test_overdue_chore_sends_one_email(self):
+        Chore.objects.create(
+            title="Take out the trash",
+            household=self.household,
+            assigned_to=self.user,
+            due_date=self.overdue,
+        )
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=self.today
+        ):
+            call_command("notify_overdue")
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertEqual(email.to, ["tester@example.com"])
+        self.assertIn("1 overdue chore(s)", email.subject)
+        self.assertIn("Take out the trash", email.body)
+
+    @override_settings(DEFAULT_FROM_EMAIL="noreply@example.com")
+    def test_two_overdue_chores_same_user_one_digest(self):
+        Chore.objects.create(
+            title="Trash",
+            household=self.household,
+            assigned_to=self.user,
+            due_date=self.overdue,
+        )
+        Chore.objects.create(
+            title="Dishes",
+            household=self.household,
+            assigned_to=self.user,
+            due_date=self.overdue,
+        )
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=self.today
+        ):
+            call_command("notify_overdue")
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertIn("2 overdue chore(s)", email.subject)
+        self.assertIn("Trash", email.body)
+        self.assertIn("Dishes", email.body)
+
+    @override_settings(DEFAULT_FROM_EMAIL="noreply@example.com")
+    def test_two_users_get_two_separate_emails(self):
+        other = User.objects.create_user(
+            "other", "other@example.com", "password123!"
+        )
+        HouseholdMember.objects.create(user=other, household=self.household)
+        Chore.objects.create(
+            title="Trash",
+            household=self.household,
+            assigned_to=self.user,
+            due_date=self.overdue,
+        )
+        Chore.objects.create(
+            title="Dishes",
+            household=self.household,
+            assigned_to=other,
+            due_date=self.overdue,
+        )
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=self.today
+        ):
+            call_command("notify_overdue")
+        self.assertEqual(len(mail.outbox), 2)
+        recipients = {e.to[0] for e in mail.outbox}
+        self.assertEqual(recipients, {"tester@example.com", "other@example.com"})
+
+    @override_settings(DEFAULT_FROM_EMAIL="noreply@example.com")
+    def test_user_with_no_email_no_mail_sent(self):
+        no_email = User.objects.create_user(
+            "noemail", "", "password123!"
+        )
+        HouseholdMember.objects.create(user=no_email, household=self.household)
+        Chore.objects.create(
+            title="Sweep",
+            household=self.household,
+            assigned_to=no_email,
+            due_date=self.overdue,
+        )
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=self.today
+        ):
+            call_command("notify_overdue")
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(
+            Notification.objects.filter(recipient=no_email).exists()
+        )
+
+    @override_settings(DEFAULT_FROM_EMAIL="noreply@example.com")
+    def test_inactive_user_no_mail_sent(self):
+        inactive = User.objects.create_user(
+            "inactive", "inactive@example.com", "password123!",
+            is_active=False,
+        )
+        HouseholdMember.objects.create(user=inactive, household=self.household)
+        Chore.objects.create(
+            title="Mop",
+            household=self.household,
+            assigned_to=inactive,
+            due_date=self.overdue,
+        )
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=self.today
+        ):
+            call_command("notify_overdue")
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertTrue(
+            Notification.objects.filter(recipient=inactive).exists()
+        )
+
+    @override_settings(DEFAULT_FROM_EMAIL="noreply@example.com")
+    def test_idempotent_no_duplicate_emails(self):
+        Chore.objects.create(
+            title="Trash",
+            household=self.household,
+            assigned_to=self.user,
+            due_date=self.overdue,
+        )
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=self.today
+        ):
+            call_command("notify_overdue")
+            mail.outbox.clear()
+            call_command("notify_overdue")
+        self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(DEFAULT_FROM_EMAIL="noreply@example.com")
+    def test_send_mail_exception_command_completes(self):
+        Chore.objects.create(
+            title="Trash",
+            household=self.household,
+            assigned_to=self.user,
+            due_date=self.overdue,
+        )
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=self.today
+        ), mock.patch(
+            "notifications.management.commands.notify_overdue.send_mail",
+            side_effect=ConnectionError("SMTP down"),
+        ):
+            call_command("notify_overdue")
+        self.assertTrue(
+            Notification.objects.filter(recipient=self.user).exists()
         )
