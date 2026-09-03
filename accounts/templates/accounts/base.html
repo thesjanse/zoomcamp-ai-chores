@@ -43,7 +43,7 @@
                 </ul>
                 <ul class="navbar-nav">
                     {% if user.is_authenticated %}
-                    <li class="nav-item" x-data="{ open: false }">
+                    <li id="notifications-header" class="nav-item" x-data="{ open: false }">
                         <button type="button" class="nav-link btn btn-link" @click="open = !open">
                             Notifications ({{ unread_count }})
                         </button>
