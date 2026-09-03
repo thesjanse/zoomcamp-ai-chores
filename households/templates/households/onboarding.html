@@ -5,23 +5,45 @@
 {% block content %}
 <h1>Welcome! Let's set up your household.</h1>
 
-<section>
-    <h2>Create a New Household</h2>
-    <form method="post">
-        {% csrf_token %}
-        {{ create_form.as_p }}
-        <input type="hidden" name="create" value="1">
-        <button type="submit">Create Household</button>
-    </form>
-</section>
+<div class="row g-4">
+    <section class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title h5">Create a New Household</h2>
+                <form method="post" class="form-container">
+                    {% csrf_token %}
+                    {% for field in create_form %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}<div class="text-danger">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                    <input type="hidden" name="create" value="1">
+                    <button type="submit" class="btn btn-primary">Create Household</button>
+                </form>
+            </div>
+        </div>
+    </section>
 
-<section>
-    <h2>Join via Invite Code</h2>
-    <form method="post">
-        {% csrf_token %}
-        {{ join_form.as_p }}
-        <input type="hidden" name="join" value="1">
-        <button type="submit">Join Household</button>
-    </form>
-</section>
+    <section class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title h5">Join via Invite Code</h2>
+                <form method="post" class="form-container">
+                    {% csrf_token %}
+                    {% for field in join_form %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}<div class="text-danger">{{ field.errors }}</div>{% endif %}
+                    </div>
+                    {% endfor %}
+                    <input type="hidden" name="join" value="1">
+                    <button type="submit" class="btn btn-primary">Join Household</button>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>
 {% endblock %}

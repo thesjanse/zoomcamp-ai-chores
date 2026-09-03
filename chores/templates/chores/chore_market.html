@@ -5,14 +5,14 @@
 
 {% block content %}
 <h1>Chore Market</h1>
-<ul>
+<ul class="chore-list">
     {% for chore in chores %}
     <li class="{{ chore|chore_color }}">
         <a href="{% url 'chore_detail' chore.pk %}">{{ chore.title }}</a>
-        <form method="post" hx-post="{% url 'chore_claim' chore.pk %}" hx-target="closest li" hx-swap="outerHTML">{% csrf_token %}<button>Claim</button></form>
+        <form method="post" hx-post="{% url 'chore_claim' chore.pk %}" hx-target="closest li" hx-swap="outerHTML" class="mb-0">{% csrf_token %}<button class="btn btn-primary btn-sm">Claim</button></form>
     </li>
     {% empty %}
-    <li>No chores available to claim.</li>
+    <li class="text-muted">No chores available to claim.</li>
     {% endfor %}
 </ul>
 {% endblock %}

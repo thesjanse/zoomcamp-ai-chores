@@ -3,11 +3,19 @@
 {% block title %}Delete {{ chore.title }}{% endblock %}
 
 {% block content %}
-<h1>Delete Chore</h1>
-<p>Are you sure you want to delete "{{ chore.title }}"?</p>
-<form method="post">
-    {% csrf_token %}
-    <button type="submit">Delete</button>
-    <a href="{% url 'chore_list' %}">Cancel</a>
-</form>
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-danger">
+            <div class="card-body">
+                <h1 class="card-title text-danger">Delete Chore</h1>
+                <p>Are you sure you want to delete "{{ chore.title }}"?</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                    <a href="{% url 'chore_list' %}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -4,13 +4,15 @@
 {% block title %}Calendar{% endblock %}
 
 {% block content %}
-<h1>{{ month_label }}</h1>
-<div>
-    <a href="{% url 'chore_calendar' %}?year={{ prev_year }}&month={{ prev_month }}">Previous</a>
-    <a href="{% url 'chore_calendar' %}?year={{ next_year }}&month={{ next_month }}">Next</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">{{ month_label }}</h1>
+    <div>
+        <a href="{% url 'chore_calendar' %}?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-secondary btn-sm">Previous</a>
+        <a href="{% url 'chore_calendar' %}?year={{ next_year }}&month={{ next_month }}" class="btn btn-secondary btn-sm">Next</a>
+    </div>
 </div>
-<table>
-    <thead>
+<table class="table table-bordered align-middle">
+    <thead class="table-light">
         <tr>
             <th>Mon</th>
             <th>Tue</th>

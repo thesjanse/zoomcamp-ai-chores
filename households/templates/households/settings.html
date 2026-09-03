@@ -4,6 +4,20 @@
 
 {% block content %}
 <h1>Household Settings</h1>
-<p>Household: {{ household.name }}</p>
-<p>Invite code: {{ household.invite_code }}</p>
+<div class="card">
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label">Household</label>
+            <div class="fs-4">{{ household.name }}</div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Invite code</label>
+            <div class="input-group">
+                <span class="form-control">{{ household.invite_code }}</span>
+                <button type="button" class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText('{{ household.invite_code }}')">Copy</button>
+            </div>
+            <div class="form-text">Share this code with others so they can join your household.</div>
+        </div>
+    </div>
+</div>
 {% endblock %}

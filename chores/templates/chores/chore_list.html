@@ -4,16 +4,18 @@
 {% block title %}Chores{% endblock %}
 
 {% block content %}
-<h1>Chores</h1>
-<a href="{% url 'chore_create' %}">New Chore</a>
-<ul>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Chores</h1>
+    <a href="{% url 'chore_create' %}" class="btn btn-primary">New Chore</a>
+</div>
+<ul class="chore-list">
     {% for chore in chores %}
     <li class="{{ chore|chore_color }}">
         <a href="{% url 'chore_detail' chore.pk %}">{{ chore.title }}</a>
-        ({{ chore.get_status_display }})
+        <span class="badge bg-secondary">{{ chore.get_status_display }}</span>
     </li>
     {% empty %}
-    <li>No chores yet.</li>
+    <li class="text-muted">No chores yet.</li>
     {% endfor %}
 </ul>
 {% endblock %}

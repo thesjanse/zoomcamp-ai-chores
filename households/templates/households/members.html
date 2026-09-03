@@ -4,20 +4,22 @@
 
 {% block content %}
 <h1>Household Members</h1>
-<ul>
+<ul class="list-group">
     {% for member in members %}
-    <li>
-        {{ member.user.username }}
-        ({{ member.get_role_display }})
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+            <span>{{ member.user.username }}</span>
+            <span class="badge bg-secondary ms-2">{{ member.get_role_display }}</span>
+        </div>
         {% if member.is_admin %}
-            <form method="post" action="{% url 'member_demote' member.pk %}">
+            <form method="post" action="{% url 'member_demote' member.pk %}" class="mb-0">
                 {% csrf_token %}
-                <button type="submit">Make Member</button>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Make Member</button>
             </form>
         {% else %}
-            <form method="post" action="{% url 'member_promote' member.pk %}">
+            <form method="post" action="{% url 'member_promote' member.pk %}" class="mb-0">
                 {% csrf_token %}
-                <button type="submit">Make Admin</button>
+                <button type="submit" class="btn btn-outline-primary btn-sm">Make Admin</button>
             </form>
         {% endif %}
     </li>
