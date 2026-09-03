@@ -3,7 +3,6 @@
 {% block title %}{{ chore.title }}{% endblock %}
 
 {% block content %}
-<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 <h1>{{ chore.title }}</h1>
 <p>Status: {{ chore.get_status_display }}</p>
 {% if chore.description %}<p>{{ chore.description }}</p>{% endif %}
