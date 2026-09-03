@@ -34,16 +34,27 @@ class Household(models.Model):
 
 
 class HouseholdMember(models.Model):
+    class Role(models.TextChoices):
+        ADMIN = "admin", "admin"
+        MEMBER = "member", "member"
+
     household = models.ForeignKey(
         Household, on_delete=models.CASCADE, related_name="members"
     )
     user = models.ForeignKey(
         "auth.User", on_delete=models.CASCADE, related_name="household_memberships"
     )
+    role = models.CharField(
+        max_length=10, choices=Role.choices, default=Role.MEMBER
+    )
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ("household", "user")
+
+    @property
+    def is_admin(self):
+        return self.role == self.Role.ADMIN
 
     def __str__(self):
         return f"{self.user} in {self.household}"

@@ -20,4 +20,4 @@ class HouseholdAdmin(admin.ModelAdmin):
 
 @admin.register(HouseholdMember)
 class HouseholdMemberAdmin(admin.ModelAdmin):
-    list_display = ("household", "user", "joined_at")
+    list_display = ("household", "user", "role", "joined_at")

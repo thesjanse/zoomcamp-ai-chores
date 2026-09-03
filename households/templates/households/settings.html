@@ -1,0 +1,9 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Household Settings{% endblock %}
+
+{% block content %}
+<h1>Household Settings</h1>
+<p>Household: {{ household.name }}</p>
+<p>Invite code: {{ household.invite_code }}</p>
+{% endblock %}
