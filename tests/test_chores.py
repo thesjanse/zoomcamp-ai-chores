@@ -611,6 +611,86 @@ class ChoreDoneTest(TestCase):
         self.assertNotContains(response, "Mark Done")
 
 
+class ChoreDetailOverdueIndicatorTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            "tester", "tester@example.com", "password123!"
+        )
+        self.household = Household.objects.create(name="The Smiths")
+        HouseholdMember.objects.create(user=self.user, household=self.household)
+        self.client.force_login(self.user)
+
+    def test_overdue_open_detail_renders_overdue_class(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            chore = Chore.objects.create(
+                title="Late open", household=self.household,
+                status="open", due_date=date(2026, 9, 10),
+            )
+            response = self.client.get(reverse("chore_detail", args=[chore.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("calendar-overdue", response.content.decode())
+
+    def test_overdue_in_progress_detail_renders_overdue_class(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            chore = Chore.objects.create(
+                title="Late in_progress", household=self.household,
+                status="in_progress", assigned_to=self.user,
+                due_date=date(2026, 9, 10),
+            )
+            response = self.client.get(reverse("chore_detail", args=[chore.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("calendar-overdue", response.content.decode())
+
+    def test_done_overdue_detail_not_overdue(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            chore = Chore.objects.create(
+                title="Done late", household=self.household,
+                status="done", due_date=date(2026, 9, 10),
+            )
+            response = self.client.get(reverse("chore_detail", args=[chore.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("calendar-overdue", response.content.decode())
+
+    def test_due_today_detail_not_overdue(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            chore = Chore.objects.create(
+                title="Due today", household=self.household,
+                status="open", due_date=date(2026, 9, 15),
+            )
+            response = self.client.get(reverse("chore_detail", args=[chore.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("calendar-overdue", response.content.decode())
+
+    def test_future_due_detail_not_overdue(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            chore = Chore.objects.create(
+                title="Future", household=self.household,
+                status="open", due_date=date(2026, 9, 20),
+            )
+            response = self.client.get(reverse("chore_detail", args=[chore.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("calendar-overdue", response.content.decode())
+
+    def test_no_due_date_detail_not_overdue(self):
+        chore = Chore.objects.create(
+            title="No due", household=self.household, status="open",
+        )
+        response = self.client.get(reverse("chore_detail", args=[chore.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("calendar-overdue", response.content.decode())
+
+
 class ChoreColorClassTest(TestCase):
     def test_no_due_date_is_none(self):
         chore = Chore(due_date=None, status="open")
