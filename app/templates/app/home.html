@@ -1,0 +1,92 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    {% if not user.is_authenticated %}
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="mb-3">Household Chores</h1>
+            <p class="lead text-muted mb-4">
+                Keep your household running smoothly. Assign chores, track progress, and stay organized — together.
+            </p>
+            <div class="d-flex justify-content-center gap-3">
+                <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Register</a>
+                <a href="{% url 'login' %}" class="btn btn-outline-secondary btn-lg">Login</a>
+            </div>
+        </div>
+    </div>
+
+    {% elif not has_household %}
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="mb-3">Welcome!</h1>
+            <p class="lead text-muted mb-4">
+                You're almost there. Create or join a household to start managing chores.
+            </p>
+            <a href="{% url 'onboarding' %}" class="btn btn-primary btn-lg">Get Started</a>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h1 class="mb-2">Welcome{% if household_name %} to {{ household_name }}{% endif %}!</h1>
+            <p class="lead text-muted mb-4">Here's a quick overview of your household.</p>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card h-100 text-center">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">Chores</h5>
+                            <p class="card-text text-muted">View and manage all household chores.</p>
+                            <a href="{% url 'chore_list' %}" class="btn btn-primary mt-auto">Go to Chores</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 text-center">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">Market</h5>
+                            <p class="card-text text-muted">Claim or swap chores with household members.</p>
+                            <a href="{% url 'chore_market' %}" class="btn btn-primary mt-auto">Go to Market</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 text-center">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">Calendar</h5>
+                            <p class="card-text text-muted">See upcoming chores on the calendar.</p>
+                            <a href="{% url 'chore_calendar' %}" class="btn btn-primary mt-auto">Go to Calendar</a>
+                        </div>
+                    </div>
+                </div>
+
+                {% if is_admin %}
+                <div class="col-md-6">
+                    <div class="card h-100 text-center">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">Members</h5>
+                            <p class="card-text text-muted">Manage household members and roles.</p>
+                            <a href="{% url 'household_members' %}" class="btn btn-outline-primary mt-auto">Manage Members</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 text-center">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">Settings</h5>
+                            <p class="card-text text-muted">Update your household settings.</p>
+                            <a href="{% url 'household_settings' %}" class="btn btn-outline-primary mt-auto">Household Settings</a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
