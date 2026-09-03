@@ -142,7 +142,23 @@ def chore_done(request, pk):
 @_household_or_redirect_decorator
 def chore_calendar(request):
     today = timezone.localdate()
-    year, month = today.year, today.month
+
+    try:
+        raw_year = request.GET.get("year")
+        raw_month = request.GET.get("month")
+        if raw_year is None or raw_month is None:
+            raise ValueError
+        year = int(raw_year)
+        month = int(raw_month)
+        if not isinstance(year, int) or year < 1:
+            raise ValueError
+        if month < 1 or month > 12:
+            raise ValueError
+    except (TypeError, ValueError):
+        year, month = today.year, today.month
+
+    display_date = date(year, month, 1)
+
     chores = Chore.objects.filter(
         household=request.household,
         due_date__isnull=False,
@@ -153,6 +169,19 @@ def chore_calendar(request):
     for chore in chores:
         by_day.setdefault(chore.due_date.day, []).append(chore)
     weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(year, month)
+
+    prev_month = month - 1
+    prev_year = year
+    if prev_month < 1:
+        prev_month = 12
+        prev_year = year - 1
+
+    next_month = month + 1
+    next_year = year
+    if next_month > 12:
+        next_month = 1
+        next_year = year + 1
+
     return render(
         request,
         "chores/calendar.html",
@@ -160,6 +189,12 @@ def chore_calendar(request):
             "weeks": weeks,
             "by_day": by_day,
             "today": today,
-            "month_label": today.strftime("%B %Y"),
+            "month_label": display_date.strftime("%B %Y"),
+            "display_year": year,
+            "display_month": month,
+            "prev_year": prev_year,
+            "prev_month": prev_month,
+            "next_year": next_year,
+            "next_month": next_month,
         },
     )

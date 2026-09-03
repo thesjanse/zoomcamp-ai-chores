@@ -768,3 +768,134 @@ class ChoreCalendarTest(TestCase):
             )
             response = self.client.get(reverse("chore_calendar"))
         self.assertNotContains(response, "Other month")
+
+
+class ChoreCalendarNavigationTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            "tester", "tester@example.com", "password123!"
+        )
+        self.household = Household.objects.create(name="The Smiths")
+        HouseholdMember.objects.create(user=self.user, household=self.household)
+        self.client.force_login(self.user)
+
+        self.other_user = User.objects.create_user("other")
+        self.other_household = Household.objects.create(name="The Others")
+        HouseholdMember.objects.create(
+            user=self.other_user, household=self.other_household
+        )
+
+    def test_no_params_shows_current_month(self):
+        today = timezone.localdate()
+        response = self.client.get(reverse("chore_calendar"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, today.strftime("%B %Y"))
+
+    def test_valid_year_month_shows_requested_month(self):
+        Chore.objects.create(
+            title="October chore", household=self.household,
+            due_date=date(2026, 10, 5),
+        )
+        response = self.client.get(
+            reverse("chore_calendar") + "?year=2026&month=10"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "October 2026")
+        self.assertContains(response, "October chore")
+
+    def test_other_month_chore_not_shown_when_navigating(self):
+        Chore.objects.create(
+            title="September chore", household=self.household,
+            due_date=date(2026, 9, 10),
+        )
+        response = self.client.get(
+            reverse("chore_calendar") + "?year=2026&month=10"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "September chore")
+
+    def test_prev_link_for_october(self):
+        response = self.client.get(
+            reverse("chore_calendar") + "?year=2026&month=10"
+        )
+        self.assertContains(response, "year=2026&month=9")
+        self.assertContains(response, "Previous")
+
+    def test_next_link_for_october(self):
+        response = self.client.get(
+            reverse("chore_calendar") + "?year=2026&month=10"
+        )
+        self.assertContains(response, "year=2026&month=11")
+        self.assertContains(response, "Next")
+
+    def test_january_prev_wraps_to_december_prev_year(self):
+        response = self.client.get(
+            reverse("chore_calendar") + "?year=2026&month=1"
+        )
+        self.assertContains(response, "year=2025&month=12")
+        self.assertContains(response, "Previous")
+
+    def test_december_next_wraps_to_january_next_year(self):
+        response = self.client.get(
+            reverse("chore_calendar") + "?year=2026&month=12"
+        )
+        self.assertContains(response, "year=2027&month=1")
+        self.assertContains(response, "Next")
+
+    def test_invalid_month_zero_falls_back_to_current_month(self):
+        today = timezone.localdate()
+        response = self.client.get(
+            reverse("chore_calendar") + "?year=2026&month=0"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, today.strftime("%B %Y"))
+
+    def test_invalid_month_thirteen_falls_back_to_current_month(self):
+        today = timezone.localdate()
+        response = self.client.get(
+            reverse("chore_calendar") + "?year=2026&month=13"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, today.strftime("%B %Y"))
+
+    def test_missing_year_param_falls_back_to_current_month(self):
+        today = timezone.localdate()
+        response = self.client.get(
+            reverse("chore_calendar") + "?month=10"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, today.strftime("%B %Y"))
+
+    def test_navigation_links_never_contain_invalid_months(self):
+        for y, m in [(2026, 1), (2026, 12)]:
+            response = self.client.get(
+                reverse("chore_calendar") + f"?year={y}&month={m}"
+            )
+            html = response.content.decode()
+            self.assertNotIn("month=0", html)
+            self.assertNotIn("month=13", html)
+
+    def test_chore_in_different_household_not_shown(self):
+        Chore.objects.create(
+            title="Foreign", household=self.other_household,
+            due_date=date(2026, 10, 5),
+        )
+        response = self.client.get(
+            reverse("chore_calendar") + "?year=2026&month=10"
+        )
+        self.assertNotContains(response, "Foreign")
+
+    def test_today_is_always_localdate_for_color_coding(self):
+        with mock.patch(
+            "django.utils.timezone.localdate", return_value=date(2026, 9, 15)
+        ):
+            overdue = Chore.objects.create(
+                title="Old overdue", household=self.household,
+                status="open", due_date=date(2026, 6, 1),
+            )
+            response = self.client.get(
+                reverse("chore_calendar") + "?year=2026&month=6"
+            )
+        self.assertContains(response, overdue.title)
+        self.assertEqual(count_class(response, "calendar-overdue"), 1)

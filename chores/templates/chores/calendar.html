@@ -5,6 +5,10 @@
 
 {% block content %}
 <h1>{{ month_label }}</h1>
+<div>
+    <a href="{% url 'chore_calendar' %}?year={{ prev_year }}&month={{ prev_month }}">Previous</a>
+    <a href="{% url 'chore_calendar' %}?year={{ next_year }}&month={{ next_month }}">Next</a>
+</div>
 <table>
     <thead>
         <tr>
@@ -23,7 +27,7 @@
             {% for day in week %}
             <td>
                 <div>{{ day.day }}</div>
-                {% if day.month == today.month %}
+                {% if day.month == display_month %}
                 {% for chore in by_day|get_item:day.day %}
                 <div class="{{ chore|chore_color }}">
                     <a href="{% url 'chore_detail' chore.pk %}">{{ chore.title }}</a>
