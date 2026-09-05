@@ -29,5 +29,3 @@ Definition of done:
 
 Ignore what the implementation says it does. Only the acceptance
 criteria and the running code count.
-
-If verdict is a PASS then write a comment and close the github issue.
